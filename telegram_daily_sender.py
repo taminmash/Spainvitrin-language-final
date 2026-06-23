@@ -695,23 +695,23 @@ def build_card_html(lesson: MarkdownLesson) -> str:
         </section>
       </div>
       <footer class="footer">
-        <div class="footer-left">
-          <div class="sound">🔊</div>
-          <div>Design by: Tamin .M</div>
-          <div>💬 @taminmashoori</div>
-          <div>✉️ <a href="mailto:tamin.mashoori@gmail.com">tamin.mashoori@gmail.com</a></div>
-        </div>
-        <div class="footer-right">
-          <div>📲 t.me/vitrinspain</div>
-          <div>🌿 t.me/hayatkhalvatspain</div>
-          <div>🤖 @VitrinSpainBot</div>
-        </div>
-      </footer>
-    </article>
-  </main>
+  <div class="footer-left" style="font-size: 10px; opacity: 0.45; line-height: 1.45;">
+    <div class="sound" style="font-size: 30px; opacity: 0.65;">🔊</div>
+    <div>Design by: Tamin .M</div>
+    <div>💬 @taminmashoori</div>
+    <div>✉️ <a href="mailto:tamin.mashoori@gmail.com" style="color: inherit; opacity: 0.9; text-decoration: none;">tamin.mashoori@gmail.com</a></div>
+  </div>
+  <div class="footer-right">
+    <div>📲 t.me/vitrinspain</div>
+    <div>🌿 t.me/hayatkhalvatspain</div>
+    <div>🤖 @VitrinSpainBot</div>
+  </div>
+</footer>
+</article>
+</main>
 </body>
 </html>"""
-
+    
 
 async def create_card_image(lesson: MarkdownLesson, output_path: Path) -> None:
     html_content = build_card_html(lesson)
