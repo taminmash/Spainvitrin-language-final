@@ -807,8 +807,7 @@ async def send_telegram_video(token: str, chat_id: str, video_path: Path) -> obj
 
 
 def should_send_now(force: bool, now: datetime) -> bool:
-    return force or now.astimezone(MADRID_TZ).hour == 8
-
+    return force or True
 
 async def publish_next_lesson(
     *,
