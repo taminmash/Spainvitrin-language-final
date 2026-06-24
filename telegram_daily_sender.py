@@ -807,7 +807,9 @@ async def send_telegram_video(token: str, chat_id: str, video_path: Path) -> obj
 
 
 def should_send_now(force: bool, now: datetime) -> bool:
-    return force or True
+    madrid_now = now.astimezone(MADRID_TZ)
+    return force or (madrid_now.hour == 8)
+
 
 async def publish_next_lesson(
     *,
@@ -818,9 +820,9 @@ async def publish_next_lesson(
     force: bool,
     keep_artifacts: bool,
 ) -> int:
-    print(f"UTC time: {datetime.utcnow()}")
-    print(f"Madrid time: {now}")
     now = datetime.now(tz=MADRID_TZ)
+    print(f"Madrid time: {now.isoformat()}")
+
     if not should_send_now(force, now):
         print(f"Skipping: Madrid time is {now:%Y-%m-%d %H:%M}, not 08:00.")
         return 0
