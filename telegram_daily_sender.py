@@ -818,6 +818,8 @@ async def publish_next_lesson(
     force: bool,
     keep_artifacts: bool,
 ) -> int:
+    print(f"UTC time: {datetime.utcnow()}")
+    print(f"Madrid time: {now}")
     now = datetime.now(tz=MADRID_TZ)
     if not should_send_now(force, now):
         print(f"Skipping: Madrid time is {now:%Y-%m-%d %H:%M}, not 08:00.")
