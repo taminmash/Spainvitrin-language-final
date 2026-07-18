@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Send immediately, bypassing the Madrid 08:00 time check"
+        description: "Send immediately, bypassing the Madrid daily publication guard"
         required: false
         default: "false"
 
@@ -53,7 +53,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
             FORCE_FLAG="--force"
           fi
-          python telegram_daily_sender.py --level a1 $FORCE_FLAG
+          python telegram_daily_entrypoint.py --level a1 $FORCE_FLAG
 
       - name: Save progress
         run: |
