@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Send immediately, bypassing the Madrid 08:00 time check"
+        description: "Send immediately, bypassing the Madrid daily publication guard"
         required: false
         default: "false"
 
