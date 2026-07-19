@@ -53,7 +53,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
             FORCE_FLAG="--force"
           fi
-          python telegram_daily_sender.py --level a1 $FORCE_FLAG
+          python telegram_daily_guarded.py --level a1 $FORCE_FLAG
 
       - name: Save progress
         run: |
