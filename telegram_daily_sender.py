@@ -18,13 +18,13 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from gtts import gTTS
 from playwright.async_api import async_playwright
-from telegram import Bot
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 
 ROOT = Path(__file__).resolve().parent
@@ -800,15 +800,87 @@ async def create_lesson_video(lesson: MarkdownLesson, work_dir: Path) -> Path:
     return video_path
 
 
-async def send_telegram_video(token: str, chat_id: str, video_path: Path) -> object:
+def build_lesson_keyboard(level: str, lesson_number: int) -> InlineKeyboardMarkup:
+    """Build the callback-only keyboard for a published lesson."""
+    normalized_level = level.strip().lower()
+    if not re.fullmatch(r"[a-z0-9_-]+", normalized_level):
+        raise SenderError(f"Invalid lesson level for callback data: {level!r}")
+    if not isinstance(lesson_number, int) or isinstance(lesson_number, bool) or lesson_number < 1:
+        raise SenderError(f"Lesson number must be a positive integer, got {lesson_number!r}")
+
+    def callback(action: str) -> str:
+        callback_data = f"lesson:{action}:{normalized_level}:{lesson_number}"
+        if len(callback_data.encode("utf-8")) > 64:
+            raise SenderError("Lesson callback_data exceeds Telegram's 64-byte limit.")
+        return callback_data
+
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("📚 آرشیو درس‌ها", callback_data=callback("archive"))],
+            [
+                InlineKeyboardButton("🧠 آزمون", callback_data=callback("quiz")),
+                InlineKeyboardButton("🤖 تمرین در ربات", callback_data=callback("practice")),
+            ],
+            [
+                InlineKeyboardButton("👍 پسندیدم", callback_data=callback("react:like")),
+                InlineKeyboardButton("👎 نپسندیدم", callback_data=callback("react:dislike")),
+            ],
+            [
+                InlineKeyboardButton("💬 ثبت نظر", callback_data=callback("comment")),
+                InlineKeyboardButton("🚨 گزارش", callback_data=callback("report")),
+            ],
+        ]
+    )
+
+
+async def send_telegram_video(
+    token: str,
+    chat_id: str,
+    video_path: Path,
+    *,
+    level: str,
+    lesson_number: int,
+) -> object:
     bot = Bot(token=token)
     with video_path.open("rb") as video:
-        return await bot.send_video(chat_id=chat_id, video=video, supports_streaming=True)
+        return await bot.send_video(
+            chat_id=chat_id,
+            video=video,
+            supports_streaming=True,
+            reply_markup=build_lesson_keyboard(level, lesson_number),
+        )
 
 
-def should_send_now(force: bool, now: datetime) -> bool:
+def last_successful_publication_date(progress: dict[str, object]) -> date | None:
+    """Return the most recent successful publication date in Europe/Madrid."""
+    history = progress.get("history", [])
+    if not isinstance(history, list):
+        raise SenderError("Progress history must be a list.")
+
+    published_at_values: list[datetime] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        published_at = entry.get("published_at_madrid")
+        if not isinstance(published_at, str) or not published_at:
+            continue
+        try:
+            timestamp = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise SenderError(f"Invalid published_at_madrid timestamp: {published_at!r}") from exc
+        if timestamp.tzinfo is None:
+            raise SenderError(f"published_at_madrid timestamp must include a timezone: {published_at!r}")
+        published_at_values.append(timestamp.astimezone(MADRID_TZ))
+
+    return max(published_at_values).date() if published_at_values else None
+
+
+def should_publish_today(force: bool, now: datetime, progress: dict[str, object]) -> bool:
+    """Allow one successful publication per Madrid date unless explicitly forced."""
+    if force:
+        return True
     madrid_now = now.astimezone(MADRID_TZ)
-    return force or (madrid_now.hour == 8)
+    return last_successful_publication_date(progress) != madrid_now.date()
 
 
 async def publish_next_lesson(
@@ -822,13 +894,20 @@ async def publish_next_lesson(
 ) -> int:
     now = datetime.now(tz=MADRID_TZ)
     print(f"Madrid time: {now.isoformat()}")
+    progress = load_progress(progress_path)
 
-    if not should_send_now(force, now):
-        print(f"Skipping: Madrid time is {now:%Y-%m-%d %H:%M}, not 08:00.")
+    last_publication_date = last_successful_publication_date(progress)
+    last_publication_label = last_publication_date.isoformat() if last_publication_date else "none"
+    print(f"Last successful Madrid publication date: {last_publication_label}")
+    if not should_publish_today(force, now, progress):
+        print(f"Skipping: today's Madrid date ({now.date().isoformat()}) is already completed.")
         return 0
+    if force:
+        print("Force mode: bypassing the Madrid daily publication guard.")
+    else:
+        print(f"Publishing: no successful lesson exists for Madrid date {now.date().isoformat()}.")
 
     lessons = load_lessons(level, lessons_dir)
-    progress = load_progress(progress_path)
     lesson = next_lesson(lessons, progress)
     if lesson is None:
         print("No remaining lessons to publish.")
@@ -857,7 +936,13 @@ async def publish_next_lesson(
         if not chat_id:
             raise SenderError("TELEGRAM_CHAT_ID environment variable is required.")
 
-        message = await send_telegram_video(token, chat_id, video_path)
+        message = await send_telegram_video(
+            token,
+            chat_id,
+            video_path,
+            level=level,
+            lesson_number=lesson_number,
+        )
         message_id = getattr(message, "message_id", None)
 
     history = progress.setdefault("history", [])
@@ -887,7 +972,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lessons-dir", type=Path, default=DEFAULT_LESSONS_DIR)
     parser.add_argument("--progress-path", type=Path, default=DEFAULT_PROGRESS_PATH)
     parser.add_argument("--dry-run", action="store_true", help="Generate one MP4 but do not send or update progress.")
-    parser.add_argument("--force", action="store_true", help="Bypass the 08:00 Europe/Madrid time check.")
+    parser.add_argument("--force", action="store_true", help="Bypass the Madrid daily publication guard.")
     parser.add_argument("--keep-artifacts", action="store_true", help="Keep the dry-run MP4 under tmp/dry_run/.")
     return parser
 
