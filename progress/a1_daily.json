@@ -1,6 +1,6 @@
 {
   "level": "a1",
-  "last_published_lesson": 8,
+  "last_published_lesson": 9,
   "history": [
     {
       "lesson_number": 1,
@@ -57,7 +57,14 @@
       "published_at_madrid": "2026-07-26T10:32:22.139646+02:00",
       "telegram_message_id": 122,
       "format": "mp4"
+    },
+    {
+      "lesson_number": 9,
+      "unit_number": 1,
+      "published_at_madrid": "2026-07-27T11:59:24.039887+02:00",
+      "telegram_message_id": 123,
+      "format": "mp4"
     }
   ],
-  "updated_at_madrid": "2026-07-26T10:32:22.139646+02:00"
+  "updated_at_madrid": "2026-07-27T11:59:24.039887+02:00"
 }
